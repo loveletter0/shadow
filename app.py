@@ -14,12 +14,15 @@ DB_CONFIG = {
     'charset': 'utf8mb4'
 }
 
+
 def get_db_connection():
     return pymysql.connect(**DB_CONFIG)
+
 
 @app.route('/')
 def hello_world():  # put application's code here
     return 'Lingyan Shadows'
+
 
 @app.route('/api/novels', methods=['GET'])
 def get_novels():
@@ -35,12 +38,29 @@ def get_novels():
     finally:
         cursor.close()
         conn.close()
-@app.route('/api/chapter/<chapter_id>', methods=['GET'])
-def get_chapter(chapter_id):
+
+
+@app.route('/api/chapter/<novel_id>', methods=['GET'])
+def get_novel_chapters(novel_id):
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
-        cursor.execute("SELECT content FROM chapter_contents ORDER BY created_at DESC")
+        cursor.execute("SELECT title FROM chapters where novel_id = %s", (novel_id,))
+        chapters = cursor.fetchall()
+        return jsonify(chapters)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
+@app.route('/api/chapter_detail/<chapter_id>', methods=['GET'])
+def get_chapter_content(chapter_id):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT content FROM chapter_contents WHere chapter_id = %s", (chapter_id,))
         novels = cursor.fetchall()
         return jsonify(novels)
     except Exception as e:
@@ -48,6 +68,7 @@ def get_chapter(chapter_id):
     finally:
         cursor.close()
         conn.close()
+
 
 @app.route('/api/novel', methods=['POST'])
 def create_novel():
@@ -77,6 +98,7 @@ def create_novel():
     finally:
         cursor.close()
         conn.close()
+
 
 @app.route('/api/chapter', methods=['POST'])
 def add_chapter():
