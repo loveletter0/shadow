@@ -1,9 +1,10 @@
 from datetime import datetime
-
+from flask_cors import CORS
 from flask import Flask, jsonify, request
 import pymysql
 
 app = Flask(__name__)
+CORS(app)
 
 DB_CONFIG = {
     'host': 'rm-bp1m9214w950bb601mo.mysql.rds.aliyuncs.com',
@@ -22,6 +23,17 @@ def get_db_connection():
 @app.route('/')
 def hello_world():  # put application's code here
     return 'Lingyan Shadows'
+
+
+@app.before_request
+def handle_options_request():
+    """处理OPTIONS预检请求"""
+    if request.method == 'OPTIONS':
+        response = jsonify({'status': 'preflight'})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', '*')
+        response.headers.add('Access-Control-Allow-Methods', '*')
+        return response
 
 
 @app.route('/api/novels', methods=['GET'])
@@ -43,9 +55,9 @@ def get_novels():
 @app.route('/api/chapter/<novel_id>', methods=['GET'])
 def get_novel_chapters(novel_id):
     conn = get_db_connection()
-    cursor = conn.cursor()
+    cursor = conn.cursor(pymysql.cursors.DictCursor)
     try:
-        cursor.execute("SELECT title FROM chapters where novel_id = %s", (novel_id,))
+        cursor.execute("SELECT chapter_id, title FROM chapters where novel_id = %s", (novel_id,))
         chapters = cursor.fetchall()
         return jsonify(chapters)
     except Exception as e:
@@ -58,10 +70,10 @@ def get_novel_chapters(novel_id):
 @app.route('/api/chapter_detail/<chapter_id>', methods=['GET'])
 def get_chapter_content(chapter_id):
     conn = get_db_connection()
-    cursor = conn.cursor()
+    cursor = conn.cursor(pymysql.cursors.DictCursor)
     try:
         cursor.execute("SELECT content FROM chapter_contents WHere chapter_id = %s", (chapter_id,))
-        novels = cursor.fetchall()
+        novels = cursor.fetchone()
         return jsonify(novels)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -70,7 +82,7 @@ def get_chapter_content(chapter_id):
         conn.close()
 
 
-@app.route('/api/novel', methods=['POST'])
+@app.route('/api/create_novel', methods=['POST'])
 def create_novel():
     """创建新小说"""
     data = request.json
@@ -100,15 +112,20 @@ def create_novel():
         conn.close()
 
 
-@app.route('/api/chapter', methods=['POST'])
-def add_chapter():
+@app.route('/api/add-chapter/<novel_id>', methods=['POST'])
+def add_chapter(novel_id):
     """添加新章节"""
+    if not request.is_json:
+        print("not json")
+        return jsonify({
+            "error": "无效请求",
+            "message": "请求必须是JSON格式"
+        }), 400
     data = request.json
-    novel_id = data.get('novel_id')
     title = data.get('title')
     content = data.get('content')
-
-    if not novel_id or not title or not content:
+    print("接收到的数据:", data)
+    if not title or not content:
         return jsonify({'error': '缺少必要参数'}), 400
 
     conn = get_db_connection()
