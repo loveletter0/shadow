@@ -4,7 +4,31 @@ from flask import Flask, jsonify, request
 import pymysql
 
 app = Flask(__name__)
-CORS(app)
+allowed_origins = [
+    "http://121.43.102.67",
+    "http://localhost:63342"  # 开发环境
+]
+
+CORS(app, resources={
+    r"/api/*": {
+        "origins": allowed_origins,
+        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        "allow_headers": ["Authorization", "Content-Type"],
+        "supports_credentials": True,
+        "max_age": 1728000
+    }
+})
+
+@app.after_request
+def after_request(response):
+    # 确保所有响应都有CORS头
+    origin = request.headers.get('Origin')
+    if origin in allowed_origins:
+        response.headers.add('Access-Control-Allow-Origin', origin)
+    response.headers.add('Access-Control-Allow-Credentials', 'true')
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+    return response
 
 DB_CONFIG = {
     'host': 'rm-bp1m9214w950bb601mo.mysql.rds.aliyuncs.com',
